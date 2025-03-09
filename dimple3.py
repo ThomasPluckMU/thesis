@@ -20,7 +20,7 @@ class DIMPLE3:
         self.buffer_chain_len = buffer_chain_len
         
         # Check if J and h have the correct sizes
-        if J.shape != (num_spins, num_spins) or h.shape != (num_spins, 1):
+        if J.shape != (num_spins, num_spins) or h.shape != (num_spins,):
             raise ValueError("Check J and h are correct size")
             
         self.J = J
@@ -29,7 +29,7 @@ class DIMPLE3:
         # Initialize state variables
         self.counters = np.random.randint(0, buffer_chain_len, size=num_spins)
         self.location = np.random.randint(0, num_spins, size=num_spins)
-        self.polarity = np.random.randint(0, 2, size=num_spins)  # Fixed: range should be 0-1
+        self.polarity = np.random.choice([-1,+1], size=num_spins)
         
     def iterate(self):
         """
@@ -37,17 +37,17 @@ class DIMPLE3:
         """
         # Calculate common drift and adjust counters
         common_drift = np.min(self.counters)
-        self.counters -= common_drift  # Fixed: counter -> self.counters
+        self.counters -= common_drift
         
         # Loop through the counters
-        for i, v in enumerate(self.counters):  # Fixed: counter -> self.counters
+        for i, v in enumerate(self.counters): 
             # I've run out of buffer chain, time for a new coupling cell
             if v == 0:
                 # Behavior at the end of the buffer chain, ie. at the inverter
-                if self.location[i] == self.num_spins - 1:  # Fixed: missing colon
+                if self.location[i] == self.num_spins - 1:
                     self.polarity[i] *= -1
                     self.location[i] = 0
-                    self.counters[i] = self.h[i][0]  # Fixed: counter -> self.counters, access h[i][0]
+                    self.counters[i] = self.h[i]
                 # Behavior on the buffer chain
                 else:
                     self.location[i] += 1
@@ -68,6 +68,15 @@ class DIMPLE3:
                         self.counters[i] = self.buffer_chain_len + self.J[i][compare_idx]
                     else:
                         self.counters[i] = self.buffer_chain_len
+                        
+    def evaluate(self):
+        """
+        Evaluated the current Hamiltonian energy of the system in relation to the underlying QUBO.
+
+        Returns:
+            numpy.array: the Hamiltonian score given by the current state of the system
+        """
+        return - 0.25 * self.polarity.T @ self.J @ self.polarity - 0.25 * np.sum(self.J)
 
 # Example usage
 if __name__ == "__main__":
